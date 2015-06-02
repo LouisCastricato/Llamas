@@ -1,5 +1,5 @@
-#ifndef PROGRESSBAR_H
-#define PROGRESSBAR_H
+#ifndef PROGRESSBAR_H_
+#define PROGRESSBAR_H_
 #include "grid.h"
 struct progressbar
 {

@@ -1,0 +1,33 @@
+# Project: Llamas
+# Makefile created by Dev-C++ 5.10
+
+CPP      = g++.exe
+CC       = gcc.exe
+WINDRES  = windres.exe
+OBJ      = build/grid.o build/main.o
+LINKOBJ  = build/grid.o build/main.o
+LIBS     = -L"V:/libraries/MinGW64/lib32" -L"V:/libraries/MinGW64/x86_64-w64-mingw32/lib32" -static-libgcc -lmingw32 -lSDL2main -lSDL2 -lSDL2_gfx -lSDL2_ttf -Wl,--no-undefined -m32 -s
+INCS     = -I"V:/libraries/MinGW64/include" -I"V:/libraries/MinGW64/x86_64-w64-mingw32/include" -I"V:/libraries/MinGW64/lib/gcc/x86_64-w64-mingw32/4.8.1/include"
+CXXINCS  = -I"V:/libraries/MinGW64/include" -I"V:/libraries/MinGW64/x86_64-w64-mingw32/include" -I"V:/libraries/MinGW64/lib/gcc/x86_64-w64-mingw32/4.8.1/include" -I"V:/libraries/MinGW64/lib/gcc/x86_64-w64-mingw32/4.8.1/include/c++"
+BIN      = bin/win32/llamas.exe
+CXXFLAGS = $(CXXINCS) -O3 -m32 -Wall -Wextra -std=gnu++11 -O2
+CFLAGS   = $(INCS) -O3 -m32 -Wall -Wextra
+RM       = rm.exe -f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+include sdl2.mak
+
+clean: clean-custom
+	${RM} $(OBJ) $(BIN)
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+build/grid.o: grid.cpp
+	$(CPP) -c grid.cpp -o build/grid.o $(CXXFLAGS)
+
+build/main.o: main.cpp
+	$(CPP) -c main.cpp -o build/main.o $(CXXFLAGS)

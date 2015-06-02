@@ -1,5 +1,5 @@
-#ifndef GRID_H
-#define GRID_H
+#ifndef GRID_H_
+#define GRID_H_
 #define SPRITE_SIZE_MULT 1.0f
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_video.h"

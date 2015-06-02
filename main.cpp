@@ -37,7 +37,7 @@ struct score
 score myScore;
 void init_cols();
 void draw();
-int main()
+int main(int argc, char *argv[])
 {
     SDL_Init( SDL_INIT_EVERYTHING );
 
@@ -52,8 +52,8 @@ int main()
 
 
     shape grid_shape;
-    grid_shape.h = GRID_W;
-    grid_shape.w = GRID_H;
+    grid_shape.w = GRID_W;
+    grid_shape.h = GRID_H;
     camera = point(0,0);
     game_world = grid(grid_shape);
     gWindow = SDL_CreateWindow( "LLamas", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1680, 1080, SDL_WINDOW_SHOWN );
