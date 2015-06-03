@@ -1,10 +1,11 @@
 #include <iostream>
-#include "grid.h"
+#include "grid.cpp"
 #define CLIENT
 #include "tcputil.h"
 #include <cmath>
 #include <sstream>
 #include <string>
+#include <cstring>
 #include "SDL2_gfx-1.0.1/SDL2_gfxPrimitives.h"
 #include "progressbar.h"
 using namespace std;
@@ -340,9 +341,12 @@ void retMsg(char *msg)
 {
     const char delimiters[] = " .,;:!-";
     char *token, *cp;
-
-    cp=strdupa(msg);
-    token= strtok(cp,delimiters);
+    
+    // cp = strdupa(msg);
+    cp = (char*)malloc(strlen(msg) + 1);
+    strcpy (cp, msg);
+    
+    token = strtok(cp,delimiters);
 
     if(!strcasecmp(token,"WORLD"))
     {

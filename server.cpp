@@ -3,6 +3,7 @@
 #include "tcputil.h"
 #include<map>
 #include <sstream>
+#include <cstring>
 struct node_pos
 {
     point p;
@@ -171,7 +172,9 @@ void command(char *msg, user *u)
     const char delimiters[] = " .,;:!-";
     char *token, *cp;
 
-    cp=strdupa(msg);
+    // cp = strdupa(msg);
+    cp = (char*)malloc(strlen(msg) + 1);
+    strcpy (cp, msg);
     token= strtok(cp,delimiters);
 
     if(!strcasecmp(token,"ADD"))

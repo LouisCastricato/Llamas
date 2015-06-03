@@ -1,4 +1,4 @@
-SDL_ROOT = C:/SDL
+SDL_ROOT = V:/libraries/SDL
 SDL_x86 = i686-w64-mingw32
 SDL_x64 = x86_64-w64-mingw32
 
