@@ -70,12 +70,17 @@ public:
     { return grid_data[i]; }
     void updateItt()
     {
+
         std::vector<node> updated_grid = std::vector<node>(grid_data.size());
+        for(int i = 0; i < grid_data.size(); i++)
+        {
+            updated_grid[i].owner = grid_data[i].owner;
+            updated_grid[i].type = grid_data[i].type;
+        }
         for(int i = 0; i < grid_data.size(); i++)
         {
             int neighbour_count=0;
             auto cur_point = convertLinearToPoint(i);
-            updated_grid[i] = grid_data[i];
             std::vector<short> neighbour_itt = std::vector<short>(team_count);
             for(int j = 0; j < team_count; j++)
             {
@@ -91,37 +96,42 @@ public:
                             && (new_point.x <= grid_size.w)){
                     node new_node = getNode(convertPointToLinear(new_point));
 
-                    if(new_node.type == node::node_types::Block)
-                        if( new_node.owner != -1){
+                    if(new_node.type == node::node_types::Block){
                             neighbour_count++;
+                        if( new_node.owner != -1){
                             neighbour_itt[new_node.owner]++;
-                        }
-                    if((new_node.type == node::node_types::Goal) &&(grid_data[i].type == node::node_types::Block))
+                        }}
+                    else if((new_node.type == node::node_types::Goal) &&(grid_data[i].type == node::node_types::Block))
                         if((new_node.owner != grid_data[i].owner) && ( new_node.owner != -1)){
                            updated_grid[convertPointToLinear(new_point)].health--;
                         }}}
                 }
             //What owner are we most similiar to?
             int best_owner = std::distance(&neighbour_itt[0], std::max_element(&neighbour_itt[0], &neighbour_itt[0] + neighbour_itt.size()));
-            if(best_owner!= 0)
-                best_owner = best_owner +1;
-            if(grid_data[i].type == node::node_types::Block){
-            if(neighbour_count < 2){
-                updated_grid[i].type = node::node_types::Empty;updated_grid[i].owner != -1;}
-            else if(neighbour_count <=3){
+            if(grid_data[i].type == node::node_types::Empty){
+            if(neighbour_count ==3){
                 updated_grid[i].type = node::node_types::Block;
-                updated_grid[i].owner = best_owner;
-            }
-            else if(neighbour_count >= 4){
-                updated_grid[i].type = node::node_types::Empty;updated_grid[i].owner != -1;}}
-
-            else if(grid_data[i].type == node::node_types::Empty){
-            if(neighbour_count >3){
-                updated_grid[i].type = node::node_types::Block;
+                //updated_grid[i].type = 0;
                 updated_grid[i].owner = best_owner;}
             }
+            else if(grid_data[i].type == node::node_types::Block){
+            if(neighbour_count < 2){
+                updated_grid[i].type = node::node_types::Empty;updated_grid[i].owner = -1;}
+            else if(neighbour_count ==3){
+                updated_grid[i].type = node::node_types::Block;
+                updated_grid[i].owner = best_owner;
+                //updated_grid[i].type = 0;
+            }
+            else if(neighbour_count >= 4){
+                updated_grid[i].type = node::node_types::Empty;updated_grid[i].owner = -1;}}
+
+
        }
-       grid_data = updated_grid;
+       for(int i = 0; i < grid_data.size(); i++)
+       {
+           grid_data[i].owner = updated_grid[i].owner;
+           grid_data[i].type = updated_grid[i].type;
+       }
        for(int i = 0; i < grid_data.size(); i++)
        {
             if(grid_data[i].health <= 0){
