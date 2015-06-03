@@ -1,2 +1,3 @@
 # Llamas
-A small statergy game that I am working on during downtime 
+A small stratergy game that I am working on during downtime 
+ 
