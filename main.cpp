@@ -1,5 +1,7 @@
 #include <iostream>
 #include "grid.h"
+#define CLIENT
+#include "tcputil.h"
 #include <cmath>
 #include <sstream>
 #include <string>
@@ -12,15 +14,22 @@ point camera;
 SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = nullptr;
 TTF_Font* Sans = NULL;
+#ifdef CLIENT
+char *socket_data;
+TCPsocket sock;
+SDLNet_SocketSet set;
+#endif
 box_bar remaining_blocks;
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 1024
 #define GRID_W 35
 #define GRID_H 35
 #define node_size 25
-
+#define MOVE_SPEED 40
 #define block_col_size 10
 #define goal_col_size 2
+
+
 SDL_Palette block_col;
 struct node_pos
 {
@@ -37,6 +46,8 @@ struct score
 score myScore;
 void init_cols();
 void draw();
+void retMsg(char *msg);
+
 int main(int argc, char *argv[])
 {
     SDL_Init( SDL_INIT_EVERYTHING );
@@ -61,10 +72,46 @@ int main(int argc, char *argv[])
 
     TTF_Init();
     Sans = TTF_OpenFont("/home/louis/LlamaGame/Neon.ttf", 28);
+#ifdef CLIENT
+    char *myName = "LOUIS-1";
+    IPaddress ip;
 
+
+    SDLNet_Init();
+    set=SDLNet_AllocSocketSet(1);
+    if(SDLNet_ResolveHost(&ip,"localhost",69878)==-1)
+    {
+        printf("SDLNet_ResolveHost: %s\n",SDLNet_GetError());
+        SDLNet_Quit();
+        SDL_Quit();
+        exit(5);
+    };
+    sock=SDLNet_TCP_Open(&ip);
+    if(!sock)
+        {
+            printf("SDLNet_TCP_Open: %s\n",SDLNet_GetError());
+            SDLNet_Quit();
+            SDL_Quit();
+            exit(6);
+        }
+    SDLNet_TCP_AddSocket(set,sock);
+
+    if(!putMsg(sock,myName))
+    {
+        SDLNet_TCP_Close(sock);
+        SDLNet_Quit();
+        SDL_Quit();
+        exit(8);
+    }
+
+    //Collect the data on our world
+    getMsg(sock,&socket_data);
+    //Process the data we just collected
+    retMsg(socket_data);
+#endif
     init_cols();
     myScore.changes_left = 5;
-    game_world.addNode(node(0,node::node_types::Goal,0),point(30,30));
+    //game_world.addNode(node(0,node::node_types::Goal,1),point(30,30));
     draw();
     SDL_Quit();
     return 0;
@@ -73,6 +120,8 @@ void init_cols()
 {
     block_col.colors = new SDL_Color[block_col_size];
     block_col.colors[0] = {0,247,247,41};
+    block_col.colors[1] = {0,255,8,0};
+    block_col.colors[2] = {0,143,0,255};
 }
 void close()
 {
@@ -85,95 +134,23 @@ void close()
     //Quit SDL subsystems
     SDL_Quit();
 }
-void fill_circle(SDL_Surface *surface, int cx, int cy, int radius, Uint32 pixel)
-{
-    // Note that there is more to altering the bitrate of this
-    // method than just changing this value.  See how pixels are
-    // altered at the following web page for tips:
-    //   http://www.libsdl.org/intro.en/usingvideo.html
-    static const int BPP = 4;
-
-    double r = (double)radius;
-
-    for (double dy = 1; dy <= r; dy += 1.0)
-    {
-        // This loop is unrolled a bit, only iterating through half of the
-        // height of the circle.  The result is used to draw a scan line and
-        // its mirror image below it.
-
-        // The following formula has been simplified from our original.  We
-        // are using half of the width of the circle because we are provided
-        // with a center and we need left/right coordinates.
-
-        double dx = floor(sqrt((2.0 * r * dy) - (dy * dy)));
-        int x = cx - dx;
-
-        // Grab a pointer to the left-most pixel for each half of the circle
-        Uint8 *target_pixel_a = (Uint8 *)surface->pixels + ((int)(cy + r - dy)) * surface->pitch + x * BPP;
-        Uint8 *target_pixel_b = (Uint8 *)surface->pixels + ((int)(cy - r + dy)) * surface->pitch + x * BPP;
-
-        for (; x <= cx + dx; x++)
-        {
-            *(Uint32 *)target_pixel_a = pixel;
-            *(Uint32 *)target_pixel_b = pixel;
-            target_pixel_a += BPP;
-            target_pixel_b += BPP;
-        }
-    }
-}
-void draw_circle(int n_cx, int n_cy, int radius, Uint32 pixel)
-{
-    // if the first pixel in the screen is represented by (0,0) (which is in sdl)
-    // remember that the beginning of the circle is not in the middle of the pixel
-    // but to the left-top from it:
-
-    double error = (double)-radius;
-    double x = (double)radius -0.5;
-    double y = (double)0.5;
-    double cx = n_cx - 0.5;
-    double cy = n_cy - 0.5;
-    SDL_SetRenderDrawColor( gRenderer,51, 204, 0, 0);
-    while (x >= y)
-    {
-        SDL_RenderDrawPoint(gRenderer, (int)(cx + x), (int)(cy + y));
-        SDL_RenderDrawPoint(gRenderer, (int)(cx + y), (int)(cy + x));
-
-        if (x != 0)
-        {
-            SDL_RenderDrawPoint(gRenderer, (int)(cx - x), (int)(cy + y));
-            SDL_RenderDrawPoint(gRenderer, (int)(cx + y), (int)(cy - x));
-        }
-
-        if (y != 0)
-        {
-            SDL_RenderDrawPoint(gRenderer, (int)(cx + x), (int)(cy - y));
-            SDL_RenderDrawPoint(gRenderer, (int)(cx - y), (int)(cy + x));
-        }
-
-        if (x != 0 && y != 0)
-        {
-            SDL_RenderDrawPoint(gRenderer, (int)(cx - x), (int)(cy - y));
-            SDL_RenderDrawPoint(gRenderer, (int)(cx - y), (int)(cy - x));
-        }
-
-        error += y;
-        ++y;
-        error += y;
-
-        if (error >= 0)
-        {
-            --x;
-            error -= x;
-            error -= x;
-        }
-    }
-}
 void draw()
 {
     int x, y;
     SDL_Event e;
     while(!quit)
     {
+        auto numready=SDLNet_CheckSockets(set, 100);
+        if(numready==-1)
+        {
+            printf("SDLNet_CheckSockets: %s\n",SDLNet_GetError());
+            break;
+        }
+        if(numready && SDLNet_SocketReady(sock)){
+            getMsg(sock,&socket_data);
+            //Process the data we just collected
+            retMsg(socket_data);
+        }
         while(SDL_PollEvent(&e) !=0)
         {
             switch(e.type)
@@ -185,16 +162,25 @@ void draw()
                 /* Check the SDLKey values and move change the coords */
                 switch( e.key.keysym.sym ){
                 case SDLK_SPACE:
+#ifdef CLIENT
+                    putMsg(sock,"space");
+                    //See if there is a new world to download
+
+#else
                     for(int i = 0; i < changes.size(); i++)
                     {
                         game_world.addNode(changes[i].n, changes[i].p);
                     }
                     game_world.updateItt();
+#endif
                     myScore.changes_left = 5;
                     changes.clear();
                     break;
                 case SDLK_BACKSPACE:
                     if(changes.size()!=0){
+#ifdef CLIENT
+                    putMsg(sock,"bckspace");
+#endif
                     changes.erase(changes.begin()+ changes.size() - 1); myScore.changes_left++;}
                     break;
                 }
@@ -216,10 +202,17 @@ void draw()
 
                             point final_point = point ( x1, y1);
                             node_pos newchange;
-                            newchange.n = node(0,node::node_types::Block,0);
-                            newchange.p = final_point;
-                            changes.push_back(newchange);
-                            myScore.changes_left--;
+                            if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Empty){
+#ifdef CLIENT
+                                stringstream stream;
+                                stream << "ADD " << x1 << " " << y1;
+                                putMsg(sock,(char*)stream.str().c_str());
+#endif
+                                newchange.n = node(0,node::node_types::Block,0);
+                                newchange.p = final_point;
+                                changes.push_back(newchange);
+                                myScore.changes_left--;
+                            }
                         }
                    }
                 else if(e.button.button == SDL_BUTTON_RIGHT){
@@ -238,10 +231,17 @@ void draw()
 
                             point final_point = point ( x1, y1);
                             node_pos newchange;
-                            newchange.n = node(0,node::node_types::Empty,0);
-                            newchange.p = final_point;
-                            changes.push_back(newchange);
-                            myScore.changes_left--;
+                            if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Block){
+#ifdef CLIENT
+                                stringstream stream;
+                                stream << "DEL " << x1 << " " << y1;
+                                putMsg(sock,(char*)stream.str().c_str());
+#endif
+                                newchange.n = node(0,node::node_types::Empty,0);
+                                newchange.p = final_point;
+                                changes.push_back(newchange);
+                                myScore.changes_left--;
+                            }
                         }
                  }
                  }
@@ -250,13 +250,13 @@ void draw()
                 point accel = point(0,0);
                 /* Check the SDLKey values and move change the coords */
                 if(e.key.keysym.sym ==SDLK_LEFT)
-                    accel.x+=10;
+                    accel.x+=MOVE_SPEED;
                 if(e.key.keysym.sym ==SDLK_RIGHT)
-                    accel.x-=10;
+                    accel.x-=MOVE_SPEED;
                 if(e.key.keysym.sym ==SDLK_UP)
-                    accel.y+=10;
+                    accel.y+=MOVE_SPEED;
                 if(e.key.keysym.sym ==SDLK_DOWN)
-                    accel.y-=10;
+                    accel.y-=MOVE_SPEED;
                 camera.x += accel.x;
                 camera.y += accel.y;
                 break;
@@ -282,8 +282,8 @@ void draw()
             switch(cur_node.type)
             {
             case(node::node_types::Block):
-                SDL_SetRenderDrawColor(gRenderer,block_col.colors[cur_node.col].r,
-                        block_col.colors[cur_node.col].g, block_col.colors[cur_node.col].b,255);
+                SDL_SetRenderDrawColor(gRenderer,block_col.colors[cur_node.owner].r,
+                        block_col.colors[cur_node.owner].g, block_col.colors[cur_node.owner].b,255);
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             case(node::node_types::Goal):
@@ -336,5 +336,34 @@ void draw()
     }
     close();
 }
+void retMsg(char *msg)
+{
+    const char delimiters[] = " .,;:!-";
+    char *token, *cp;
 
+    cp=strdupa(msg);
+    token= strtok(cp,delimiters);
+
+    if(!strcasecmp(token,"WORLD"))
+    {
+        //Get our position
+        int w,h;
+        token = strtok(NULL,delimiters);
+        w = atoi(token);
+        token = strtok(NULL,delimiters);
+        h = atoi(token);
+        shape s = shape();
+        s.w = w;
+        s.h = h;
+        game_world = grid(s);
+        for(int i = 0; i < s.w * s.h; i++)
+        {
+            node tempNode;
+            tempNode.type = atoi(strtok(NULL,delimiters));
+            tempNode.owner = atoi(strtok(NULL,delimiters));
+            //Add our newly found node to the entire list
+            game_world.addNode(tempNode,game_world.convertLinearToPoint(i));
+        }
+    }
+}
 
