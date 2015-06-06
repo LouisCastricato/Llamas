@@ -84,12 +84,12 @@ int main(int argc, char **argv)
         exit(4);
     }
     shape world_shape;
-    world_shape.h = 50;
-    world_shape.w = 50;
+    world_shape.h = 75;
+    world_shape.w = 75;
     game_world = new grid(world_shape);
 
-    game_world->addNode(node(0,node::node_types::Goal,0),point(35/2,5));
-    game_world->addNode(node(1,node::node_types::Goal,1),point(35/2,45));
+    game_world->addNode(node(0,node::node_types::Goal,0),point(35,10));
+    game_world->addNode(node(1,node::node_types::Goal,1),point(35,65));
 
     users = std::vector<user>();
     TeamBoundingBoxes = std::vector<shape>(team_count);
@@ -144,7 +144,13 @@ int main(int argc, char **argv)
                     {
                         //If they want to remove a block, let them
                         if(users[i].changes.size()!=0)
+                        {
+                            auto np = users[i].changes[users[i].changes.size() - 1];
+                            np.n.type = node::node_types::Empty;
+                            turnChanges[np.n.owner][index_per_team[np.n.owner]] = np;
+                            index_per_team[np.n.owner]++;
                             users[i].changes.erase(users[i].changes.begin()+users[i].changes.size() - 1);
+                        }
                         i++;
                     }
                     else if(strcmp(message,"exit")==0)
@@ -205,7 +211,7 @@ int main(int argc, char **argv)
         if((users_working <=0) &&(users.size() != 0))
         {
             //If no one has changed anything don't update
-            bool doNotUpdate = true;
+           // bool doNotUpdate = true;
             //Push pending changes. Done in reverse so that earlier uses have priority
             for(int i =  users.size() - 1; i >= 0; i--)
             {
@@ -216,10 +222,11 @@ int main(int argc, char **argv)
                 {
                     //Add the node to the world
                     game_world->addNode(users[i].changes[j].n,users[i].changes[j].p);
-                    doNotUpdate = false;
+                    //doNotUpdate = false;
                 }
+                users[i].changes.clear();
             }
-            if(!doNotUpdate){
+           // if(!doNotUpdate){
                 turnChanges.clear();
                 for(int i = 0; i < team_count; i++)
                 {
@@ -238,7 +245,7 @@ int main(int argc, char **argv)
                             users[j].isDone = false;
                         }
                     }
-                }
+                //}
             }
         }
 
@@ -298,6 +305,9 @@ void command(char *msg, user *u)
         node_pos np;
         np.n = newNode;
         np.p = p;
+        //Allows for collaborative building between teams during an iteration
+        turnChanges[newNode.owner][index_per_team[newNode.owner]] = np;
+        index_per_team[newNode.owner]++;
         u->changes.push_back(np);
     }
 }
