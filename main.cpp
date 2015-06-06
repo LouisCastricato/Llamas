@@ -4,9 +4,9 @@
 #include "tcputil.h"
 #include <cmath>
 #include <sstream>
+#include <fstream>
 #include <string>
 #include <cstring>
-#include "SDL2_gfx-1.0.1/SDL2_gfxPrimitives.h"
 #include "progressbar.h"
 using namespace std;
 grid game_world;
@@ -21,6 +21,7 @@ TCPsocket sock;
 SDLNet_SocketSet set;
 #endif
 box_bar remaining_blocks;
+timer screen_timer;
 //Are we currently building our fortress?
 bool fortressBuildPhase = false;
 
@@ -33,6 +34,14 @@ bool fortressBuildPhase = false;
 #define block_col_size 10
 #define goal_col_size 2
 
+#include <stdio.h>  /* defines FILENAME_MAX */
+#ifdef WINDOWS
+#include <direct.h>
+#define GetCurrentDir _getcwd
+#else
+#include <unistd.h>
+#define GetCurrentDir getcwd
+#endif
 
 SDL_Palette block_col;
 struct node_pos
@@ -59,15 +68,26 @@ void retMsg(char *msg);
 
 int main(int argc, char *argv[])
 {
+    //Retrieve our current working directory
+    char cCurrentPath[FILENAME_MAX];
+
+    if (!GetCurrentDir(cCurrentPath, sizeof(cCurrentPath)))
+    {
+        return errno;
+    }
+
     SDL_Init( SDL_INIT_EVERYTHING );
 
     remaining_blocks = box_bar();
     remaining_blocks.box_size = 30;
     remaining_blocks.myShape.p.x=10;
 
+    screen_timer.myShape.p.x = 50;
+    screen_timer.setRadius(40);
+    screen_timer.startClock(30);
     if (TTF_Init() == -1)
     {
-      printf("Unable to initialize SDL_ttf: %s \n", TTF_GetError());}
+        printf("Unable to initialize SDL_ttf: %s \n", TTF_GetError());}
 
 
     shape grid_shape;
@@ -75,26 +95,41 @@ int main(int argc, char *argv[])
     grid_shape.h = GRID_H;
     camera = point(0,0);
     game_world = grid(grid_shape);
-    gWindow = SDL_CreateWindow( "LLamas", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1680, 1080, SDL_WINDOW_SHOWN );
+    gWindow = SDL_CreateWindow( "LLamas", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1680, 1080, SDL_WINDOW_RESIZABLE );
     gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
 
     TTF_Init();
-    Sans = TTF_OpenFont("/home/louis/Llamas/Neon.ttf", 28);
+    std::stringstream file_dir_stream;
+    file_dir_stream << cCurrentPath << "/Neon.ttf";
+    Sans = TTF_OpenFont(file_dir_stream.str().c_str(), 28);
+    file_dir_stream.flush();
+    file_dir_stream.str("");
+    //Load the settings file
+    file_dir_stream << cCurrentPath << "/Settings.txt";
+    std::ifstream fin(file_dir_stream.str().c_str());
 
+    std::string Name, IP, Port;
+    if(fin.is_open()){
+        //Insert any other parameters that should be loaded here
+        fin >> Name;
+        fin >> IP;
+        fin >> Port;
 
+        file_dir_stream.flush();
+        fin.close();
+    }
     remaining_blocks.myFont = Sans;
     if (Sans == nullptr){
         std::cout << TTF_GetError() << std::endl;
         return 0;
     }
 #ifdef CLIENT
-    char *myName = "LOUIS-1";
+    char *myName = (char*)Name.c_str();
     IPaddress ip;
-
 
     SDLNet_Init();
     set=SDLNet_AllocSocketSet(1);
-    if(SDLNet_ResolveHost(&ip,"localhost",69878)==-1)
+    if(SDLNet_ResolveHost(&ip,IP.c_str(),atoi(Port.c_str()))==-1)
     {
         printf("SDLNet_ResolveHost: %s\n",SDLNet_GetError());
         SDLNet_Quit();
@@ -103,12 +138,12 @@ int main(int argc, char *argv[])
     };
     sock=SDLNet_TCP_Open(&ip);
     if(!sock)
-        {
-            printf("SDLNet_TCP_Open: %s\n",SDLNet_GetError());
-            SDLNet_Quit();
-            SDL_Quit();
-            exit(6);
-        }
+    {
+        printf("SDLNet_TCP_Open: %s\n",SDLNet_GetError());
+        SDLNet_Quit();
+        SDL_Quit();
+        exit(6);
+    }
     SDLNet_TCP_AddSocket(set,sock);
 
     if(!putMsg(sock,myName))
@@ -137,7 +172,9 @@ void init_cols()
     block_col.colors = new SDL_Color[block_col_size];
     block_col.colors[0] = {0,247,247,41};
     block_col.colors[1] = {0,255,8,0};
-    block_col.colors[2] = {0,143,0,255};
+    block_col.colors[2] = {150,143,0,255};
+
+    screen_timer.myColor =  block_col.colors[2];
 }
 void close()
 {
@@ -161,6 +198,11 @@ void draw()
         //Current window width and height
         int w,h;
         SDL_GetWindowSize(gWindow,&w,&h);
+
+        screen_timer.myShape.p.y = h - 50;
+        if(screen_timer.done()) //If the timer says we're done, go to the next iteration
+            putMsg(sock,"space");
+
         if(numready==-1)
         {
             printf("SDLNet_CheckSockets: %s\n",SDLNet_GetError());
@@ -176,6 +218,7 @@ void draw()
             switch(e.type)
             {
             case SDL_QUIT:
+                putMsg(sock,"exit");
                 quit = true;
                 break;
             case SDL_KEYUP:
@@ -209,81 +252,85 @@ void draw()
                         remaining_blocks.active_ammo_index = 0;
                     break;
                 case SDLK_BACKSPACE:
-                    if(changes.size()!=0){
+                    if(!screen_timer.done()){
+                        if(changes.size()!=0){
 #ifdef CLIENT
-                    putMsg(sock,"bckspace");
+                            putMsg(sock,"bckspace");
 #endif
-                    changes.erase(changes.begin()+ changes.size() - 1); remaining_blocks.ammos[remaining_blocks.active_ammo_index].count++;}
+                            changes.erase(changes.begin()+ changes.size() - 1); remaining_blocks.ammos[remaining_blocks.active_ammo_index].count++;}
+                    }
                     break;
                 }
                 break;
             case SDL_MOUSEBUTTONDOWN:if(remaining_blocks.ammos[remaining_blocks.active_ammo_index].count > 0){
-                if(e.button.button == SDL_BUTTON_LEFT){
-                    x = e.button.x; y = e.button.y;
-                    x -= camera.x; y -= camera.y;
-                    //Are we within the playing field?
-                    if((x > 0)&&(x < (GRID_W + 1) * node_size))
-                        if((y > 0)&&(y < (GRID_H + 1) * node_size))
-                        {
+                    if(!screen_timer.done()){
+                        if(e.button.button == SDL_BUTTON_LEFT){
+                            x = e.button.x; y = e.button.y;
+                            x -= camera.x; y -= camera.y;
+                            //Are we within the playing field?
+                            if((x > 0)&&(x < (GRID_W + 1) * node_size))
+                                if((y > 0)&&(y < (GRID_H + 1) * node_size))
+                                {
 
-                            float x1, y1;
-                            x1 = y1 = 0.0f;
-                            x1 = (float)x / (float)(node_size+ 1);
-                            y1 = (float)y / (float)(node_size+ 1);
-                            x1 = (int)x1;
-                            y1 = (int)y1;
+                                    float x1, y1;
+                                    x1 = y1 = 0.0f;
+                                    x1 = (float)x / (float)(node_size+ 1);
+                                    y1 = (float)y / (float)(node_size+ 1);
+                                    x1 = (int)x1;
+                                    y1 = (int)y1;
 
-                            point final_point = point ( x1, y1);
-                            node_pos newchange;
+                                    point final_point = point ( x1, y1);
+                                    node_pos newchange;
 
-                            //Check to see if we're within our fortress
-                            if(((x1 > FortShape.p.x -FortShape.w)&&(y1 > FortShape.p.y - FortShape.h)) && ((x1 < FortShape.p.x + FortShape.w)&&(y1 < FortShape.p.y + FortShape.h)))
-                            if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Empty){
+                                    //Check to see if we're within our fortress
+                                    if(((x1 > FortShape.p.x -FortShape.w)&&(y1 > FortShape.p.y - FortShape.h)) && ((x1 < FortShape.p.x + FortShape.w)&&(y1 < FortShape.p.y + FortShape.h)))
+                                        if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Empty){
 #ifdef CLIENT
-                                stringstream stream;
-                                stream << "ADD " << x1 << " " << y1 << " " << remaining_blocks.ammos[remaining_blocks.active_ammo_index].type;
-                                putMsg(sock,(char*)stream.str().c_str());
+                                            stringstream stream;
+                                            stream << "ADD " << x1 << " " << y1 << " " << remaining_blocks.ammos[remaining_blocks.active_ammo_index].type;
+                                            putMsg(sock,(char*)stream.str().c_str());
 #endif
-                                newchange.n = node(0,remaining_blocks.ammos[remaining_blocks.active_ammo_index].type,0);
-                                newchange.p = final_point;
-                                changes.push_back(newchange);
-                                remaining_blocks.ammos[remaining_blocks.active_ammo_index].count--;
-                            }
+                                            newchange.n = node(0,remaining_blocks.ammos[remaining_blocks.active_ammo_index].type,0);
+                                            newchange.p = final_point;
+                                            changes.push_back(newchange);
+                                            remaining_blocks.ammos[remaining_blocks.active_ammo_index].count--;
+                                        }
+                                }
                         }
-                   }
-                else if(e.button.button == SDL_BUTTON_RIGHT){
-                    x = e.button.x; y = e.button.y;
-                    x -= camera.x; y -= camera.y;
+                        else if(e.button.button == SDL_BUTTON_RIGHT){
+                            x = e.button.x; y = e.button.y;
+                            x -= camera.x; y -= camera.y;
 
-                    if((x > 0)&&(x < (GRID_W + 1) * node_size))
-                        if((y > 0)&&(y < (GRID_H + 1) * node_size))
-                        {
-                            float x1, y1;
-                            x1 = y1 = 0.0f;
-                            x1 = (float)x / (float)(node_size+ 1);
-                            y1 = (float)y / (float)(node_size+ 1);
-                            x1 = (int)x1;
-                            y1 = (int)y1;
+                            if((x > 0)&&(x < (GRID_W + 1) * node_size))
+                                if((y > 0)&&(y < (GRID_H + 1) * node_size))
+                                {
+                                    float x1, y1;
+                                    x1 = y1 = 0.0f;
+                                    x1 = (float)x / (float)(node_size+ 1);
+                                    y1 = (float)y / (float)(node_size+ 1);
+                                    x1 = (int)x1;
+                                    y1 = (int)y1;
 
-                            point final_point = point ( x1, y1);
-                            node_pos newchange;
+                                    point final_point = point ( x1, y1);
+                                    node_pos newchange;
 
-                            //Check to see if we're within our fortress
-                            if(((x1 > FortShape.p.x -FortShape.w)&&(y1 > FortShape.p.y - FortShape.h)) && ((x1 < FortShape.p.x + FortShape.w)&&(y1 < FortShape.p.y + FortShape.h)))
-                            if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Block){
+                                    //Check to see if we're within our fortress
+                                    if(((x1 > FortShape.p.x -FortShape.w)&&(y1 > FortShape.p.y - FortShape.h)) && ((x1 < FortShape.p.x + FortShape.w)&&(y1 < FortShape.p.y + FortShape.h)))
+                                        if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Block){
 #ifdef CLIENT
-                                stringstream stream;
-                                stream << "DEL " << x1 << " " << y1;
-                                putMsg(sock,(char*)stream.str().c_str());
+                                            stringstream stream;
+                                            stream << "DEL " << x1 << " " << y1;
+                                            putMsg(sock,(char*)stream.str().c_str());
 #endif
-                                newchange.n = node(0,node::node_types::Empty,0);
-                                newchange.p = final_point;
-                                changes.push_back(newchange);
-                                remaining_blocks.ammos[remaining_blocks.active_ammo_index].count--;
-                            }
+                                            newchange.n = node(0,node::node_types::Empty,0);
+                                            newchange.p = final_point;
+                                            changes.push_back(newchange);
+                                            remaining_blocks.ammos[remaining_blocks.active_ammo_index].count--;
+                                        }
+                                }
                         }
-                 }
-                 }
+                    }
+                }
                 break;
             case SDL_KEYDOWN:
                 point accel = point(0,0);
@@ -351,17 +398,17 @@ void draw()
             {
             case(node::node_types::Block):
                 SDL_SetRenderDrawColor(gRenderer,119,
-                        136, 153,255);
+                                       136, 153,255);
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             case(node::node_types::Fortress):
                 SDL_SetRenderDrawColor(gRenderer,0,
-                        128, 128,255);
+                                       128, 128,255);
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             case(node::node_types::Empty):
                 SDL_SetRenderDrawColor(gRenderer,255,
-                        255, 255,255);
+                                       255, 255,255);
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             }
@@ -381,17 +428,17 @@ void draw()
             {
             case(node::node_types::Block):
                 SDL_SetRenderDrawColor(gRenderer,128,
-                        128, 128,255);
+                                       128, 128,255);
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             case(node::node_types::Fortress):
                 SDL_SetRenderDrawColor(gRenderer,47,
-                        79, 79,255);
+                                       79, 79,255);
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             case(node::node_types::Empty):
                 SDL_SetRenderDrawColor(gRenderer,255,
-                        255, 255,255);
+                                       255, 255,255);
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             }
@@ -415,10 +462,13 @@ void draw()
 
         //Are we rendering the number of cells left to build for this turn or are we rendering the number of fortress walls left that we can build?
         remaining_blocks.draw(gRenderer);
-
+        screen_timer.draw(gRenderer);
         //Draw the bounds of the fortress
         SDL_SetRenderDrawColor( gRenderer,40,50,50,250);
-        SDL_Rect fortrect = SDL_Rect{(FortShape.p.x - FortShape.w) * (node_size + 1) +camera.x ,(FortShape.p.y - FortShape.h)* (node_size + 1) + camera.y, 2 * FortShape.w * (node_size + 1),2 * FortShape.h * (node_size + 1)};
+        auto fortwidth = FortShape.w;
+        auto fortheight = FortShape.h;
+
+        SDL_Rect fortrect = SDL_Rect{(FortShape.p.x + 1 - fortwidth) * (node_size + 1) +camera.x,(FortShape.p.y - fortheight)* (node_size + 1) + camera.y, 2.0f * ((float)fortwidth - 0.5f) * (node_size + 1),2 * fortheight * (node_size + 1)};
         SDL_RenderDrawRect(gRenderer, &fortrect);
 
         //Update screen
@@ -471,6 +521,7 @@ void retMsg(char *msg)
         remaining_blocks.resetScores();
         changes.clear();
         team_changes.clear();
+        screen_timer.startClock(30);
     }
     //You can view other players on your team building their fort & cells before the turn ends
     else if(!strcasecmp(token,"FORTDYN"))

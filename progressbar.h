@@ -1,6 +1,7 @@
 #ifndef PROGRESSBAR_H_
 #define PROGRESSBAR_H_
 #include "grid.h"
+#include "SDL2_gfx-1.0.1/SDL2_gfxPrimitives.h"
 struct progressbar
 {
     virtual void draw(SDL_Renderer *render){}
@@ -13,6 +14,42 @@ struct Ammo
     int count;
     int box_size;
     int type;
+};
+//Percentage based pie clock
+struct timer : public progressbar
+{
+public:
+    time_t start_time;
+    int time_to_wait;
+    int r;
+
+    void startClock(int timeToWait)
+    {
+        time_to_wait =timeToWait;
+        start_time = time(NULL);
+    }
+    void setRadius(int rad)
+    {
+        this->r = rad;
+    }
+
+    virtual void draw(SDL_Renderer *render)
+    {
+        auto timenow = time(NULL);
+        auto diff = timenow - start_time;
+        float percent = (float)diff/ (float)time_to_wait;
+        percent = fmin(1.0f,percent);
+        filledPieRGBA(render,myShape.p.x,myShape.p.y,r,0,percent * 360,myColor.r, myColor.g, myColor.b,myColor.a);
+    }
+    //Got lazy and reused code from above. Could be simpler but not worth it
+    bool done()
+    {
+        auto timenow = time(NULL);
+        auto diff = timenow - start_time;
+        float percent = (float)diff/ (float)time_to_wait;
+
+        return (percent > 1.0f);
+    }
 };
 
 struct box_bar : public progressbar

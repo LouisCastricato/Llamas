@@ -1,4 +1,4 @@
-
+/*
 #ifndef CLIENT
 #include "grid.cpp"
 #include "tcputil.h"
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
             index_per_team[i] = 0;
         }
 
-        for(int i = 0; i < users.size(); i++)
+        for(int i = 0; i < users.size();)
         {
             if(SDLNet_SocketReady(users[i].mySocket))
             {
@@ -146,19 +146,36 @@ int main(int argc, char **argv)
                         //If they want to remove a block, let them
                         if(users[i].changes.size()!=0)
                             users[i].changes.erase(users[i].changes.begin()+users[i].changes.size() - 1);
+                        i++;
+                    }
+                    else if(strcmp(message,"exit")==0)
+                    {
+                        //If this user left the game.
+                        if(users[i].isDone==true)
+                            users_working--;
+                        users.erase(users.begin() + i);
                     }
                     else if(strcmp(message,"space")==0)
                     {
                         //If they've readied up
                         users[i].isDone = true;
+                        i++;
                     }
-                    else
+                    else{
                         command(message,&users[i]);
+                        i++;
+                    }
                 }
             }
-            if(users[i].isDone == true)
-                users_working--;
+
         }
+        for(int i = 0; i < users.size(); i++)
+        {
+            if(users[i].isDone == true){
+                users_working--;
+            }
+        }
+
         for(int i = 0; i < team_count; i++)
         {
             //If any changes happened
@@ -324,8 +341,8 @@ shape computeBoundingBox(int team)
 
     shape to_return;
     to_return.p = goalpt;
-    to_return.w = max.x - goalpt.x + 3;
-    to_return.h = max.y - goalpt.y + 3;
+    to_return.w = (max.x - min.x)/2 + 3;
+    to_return.h = (max.y - min.y)/2 + 3;
     return to_return;
 }
 
@@ -371,5 +388,4 @@ SDLNet_SocketSet create_sock()
     return(set);
 }
 #endif
-
-
+*/
