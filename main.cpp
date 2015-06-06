@@ -520,65 +520,65 @@ void retMsg(char *msg)
     if (msg && strlen(msg)){
         cp = (char*)malloc(strlen(msg) + 1);
         strcpy (cp, msg);
+    
+        token = strtok(cp,delimiters);
+
+        if(!strcasecmp(token,"WORLD"))
+        {
+            //Get our position
+            int w,h;
+            token = strtok(NULL,delimiters);
+            w = atoi(token);
+            token = strtok(NULL,delimiters);
+            h = atoi(token);
+            shape s = shape();
+            s.w = w;
+            s.h = h;
+            game_world = grid(s);
+            for(int i = 0; i < s.w * s.h; i++)
+            {
+                node tempNode;
+                tempNode.type = atoi(strtok(NULL,delimiters));
+                if(tempNode.type != 0)
+                {
+                    tempNode.type = tempNode.type + 1;
+                    tempNode.type = tempNode.type -1;
+                }
+                tempNode.owner = atoi(strtok(NULL,delimiters));
+                //Add our newly found node to the entire list
+                game_world.addNode(tempNode,game_world.convertLinearToPoint(i));
+            }
+            //Get this turns new fortress bounds
+            FortShape.w = atoi(strtok(NULL,delimiters));
+            FortShape.h = atoi(strtok(NULL,delimiters));
+            FortShape.p.x = atoi(strtok(NULL,delimiters));
+            FortShape.p.y = atoi(strtok(NULL,delimiters));
+            //Reset the scores and changes
+            remaining_blocks.resetScores();
+            changes.clear();
+            team_changes.clear();
+            screen_timer.startClock(30);
+        }
+        //You can view other players on your team building their fort & cells before the turn ends
+        else if(!strcasecmp(token,"FORTDYN"))
+        {
+            //Get our position
+            int length;
+            token = strtok(NULL,delimiters);
+            length = atoi(token);
+            for(int i = 0; i < length; i++)
+            {
+                node_pos changed_node;
+                changed_node.p.x =  atoi(strtok(NULL,delimiters));
+                changed_node.p.y = atoi(strtok(NULL,delimiters));
+                changed_node.n.type =atoi(strtok(NULL,delimiters));
+                //Add our newly found node to the entire list
+                team_changes.push_back(changed_node);
+            }
+        }
     }else{
         cp =(char*)malloc(1);
         *cp = '\0';
-    }
-    
-    token = strtok(cp,delimiters);
-
-    if(!strcasecmp(token,"WORLD"))
-    {
-        //Get our position
-        int w,h;
-        token = strtok(NULL,delimiters);
-        w = atoi(token);
-        token = strtok(NULL,delimiters);
-        h = atoi(token);
-        shape s = shape();
-        s.w = w;
-        s.h = h;
-        game_world = grid(s);
-        for(int i = 0; i < s.w * s.h; i++)
-        {
-            node tempNode;
-            tempNode.type = atoi(strtok(NULL,delimiters));
-            if(tempNode.type != 0)
-            {
-                tempNode.type = tempNode.type + 1;
-                tempNode.type = tempNode.type -1;
-            }
-            tempNode.owner = atoi(strtok(NULL,delimiters));
-            //Add our newly found node to the entire list
-            game_world.addNode(tempNode,game_world.convertLinearToPoint(i));
-        }
-        //Get this turns new fortress bounds
-        FortShape.w = atoi(strtok(NULL,delimiters));
-        FortShape.h = atoi(strtok(NULL,delimiters));
-        FortShape.p.x = atoi(strtok(NULL,delimiters));
-        FortShape.p.y = atoi(strtok(NULL,delimiters));
-        //Reset the scores and changes
-        remaining_blocks.resetScores();
-        changes.clear();
-        team_changes.clear();
-        screen_timer.startClock(30);
-    }
-    //You can view other players on your team building their fort & cells before the turn ends
-    else if(!strcasecmp(token,"FORTDYN"))
-    {
-        //Get our position
-        int length;
-        token = strtok(NULL,delimiters);
-        length = atoi(token);
-        for(int i = 0; i < length; i++)
-        {
-            node_pos changed_node;
-            changed_node.p.x =  atoi(strtok(NULL,delimiters));
-            changed_node.p.y = atoi(strtok(NULL,delimiters));
-            changed_node.n.type =atoi(strtok(NULL,delimiters));
-            //Add our newly found node to the entire list
-            team_changes.push_back(changed_node);
-        }
     }
 }
 
