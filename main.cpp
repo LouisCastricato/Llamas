@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
     }
 
     //Collect the data on our world
-    getMsg(sock,&socket_data);
+    getMsg(sock,socket_data);
     //Process the data we just collected
     retMsg(socket_data);
 #endif
@@ -201,7 +201,7 @@ void draw()
             break;
         }
         if(numready && SDLNet_SocketReady(sock)){
-            getMsg(sock,&socket_data);
+            getMsg(sock,socket_data);
             //Process the data we just collected
             retMsg(socket_data);
         }
@@ -516,8 +516,14 @@ void retMsg(char *msg)
     char *token, *cp;
     
     // cp = strdupa(msg);
-    cp = (char*)malloc(strlen(msg) + 1);
-    strcpy (cp, msg);
+    std::cout << msg << std::endl;
+    if (msg && strlen(msg)){
+        cp = (char*)malloc(strlen(msg) + 1);
+        strcpy (cp, msg);
+    }else{
+        cp =(char*)malloc(1);
+        *cp = '\0';
+    }
     
     token = strtok(cp,delimiters);
 

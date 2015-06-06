@@ -8,7 +8,8 @@
 #include <algorithm>
 #define team_count 2
 
-#include <stdio.h>  /* defines FILENAME_MAX */
+#include <cstdio>  /* defines FILENAME_MAX */
+#include <ctime>
 #ifdef WINDOWS
 #include <direct.h>
 #define GetCurrentDir _getcwd

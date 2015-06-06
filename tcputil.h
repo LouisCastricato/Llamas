@@ -7,19 +7,20 @@
 /* receive a buffer from a TCP socket with error checking */
 /* this function handles the memory, so it can't use any [] arrays */
 /* returns 0 on any errors, or a valid char* on success */
-char *getMsg(TCPsocket sock, char **buf)
+char *getMsg(TCPsocket sock, char *buf)
 {
     Uint32 len,result;
-    static char *_buf;
 
     /* allow for a NULL buf, use a static internal one... */
-    if(!buf)
-        buf=&_buf;
+    if(!buf){
+        buf = (char*)malloc(sizeof(char*));
+        *buf = '\0';
+    }
 
     /* free the old buffer */
-    if(*buf)
-        free(*buf);
-    *buf=NULL;
+    if(buf)
+        free(buf);
+    buf=NULL;
 
     /* receive the length of the string message */
     result=SDLNet_TCP_Recv(sock,&len,sizeof(len));
@@ -38,22 +39,29 @@ char *getMsg(TCPsocket sock, char **buf)
         return(NULL);
 
     /* allocate the buffer memory */
-    *buf=(char*)malloc(len);
-    if(!(*buf))
+    buf=(char*)malloc(len);
+    if(!buf)
         return(NULL);
 
     /* get the string buffer over the socket */
-    result=SDLNet_TCP_Recv(sock,*buf,len);
+    result=SDLNet_TCP_Recv(sock,buf,len);
     if(result<len)
     {
         if(SDLNet_GetError() && strlen(SDLNet_GetError())) /* sometimes blank! */
             printf("SDLNet_TCP_Recv: %s\n", SDLNet_GetError());
-        free(*buf);
+        free(buf);
         buf=NULL;
     }
 
     /* return the new buffer */
-    return(*buf);
+    
+    /* allow for a NULL buf, use a static internal one... */
+    if(!buf){
+        buf = (char*)malloc(sizeof(char*));
+        *buf = '\0';
+    }
+        
+    return(buf);
 }
 
 /* send a string buffer over a TCP socket with error checking */
