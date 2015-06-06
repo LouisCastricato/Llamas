@@ -15,8 +15,8 @@ link_directories(${SDL2_LIBS} ${SDL2_TTF_LIBRARIES} ${SDL2_NET_LIBRARIES})
 
 
 
-add_executable( ${PROJECT_NAME} ${SRC_LIST})
-#add_executable( LlamaServer server.cpp)
+#add_executable( ${PROJECT_NAME} ${SRC_LIST})
+add_executable( LlamaServer server.cpp)
 
-target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARY} ${SDL2_TTF_LIBRARIES} ${SDL2GFX_LIBRARY} ${SDL2_NET_LIBRARIES})
-#target_link_libraries(LlamaServer ${SDL2_LIBRARY} ${SDL2_TTF_LIBRARIES} ${SDL2GFX_LIBRARY} ${SDL2_NET_LIBRARIES})
+#target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARY} ${SDL2_TTF_LIBRARIES} ${SDL2GFX_LIBRARY} ${SDL2_NET_LIBRARIES})
+target_link_libraries(LlamaServer ${SDL2_LIBRARY} ${SDL2_TTF_LIBRARIES} ${SDL2GFX_LIBRARY} ${SDL2_NET_LIBRARIES})

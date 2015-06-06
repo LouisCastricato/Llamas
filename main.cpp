@@ -183,7 +183,9 @@ void close()
     SDL_DestroyWindow( gWindow );
     gWindow = NULL;
     gRenderer = NULL;
-
+    SDLNet_TCP_Close(sock);
+    TTF_CloseFont(Sans);
+    SDLNet_Quit();
     //Quit SDL subsystems
     SDL_Quit();
 }
@@ -474,6 +476,7 @@ void draw()
         //Update screen
         SDL_RenderPresent( gRenderer );
     }
+    putMsg(sock,"exit");
     close();
 }
 void retMsg(char *msg)

@@ -1,4 +1,4 @@
-/*
+
 #ifndef CLIENT
 #include "grid.cpp"
 #include "tcputil.h"
@@ -84,12 +84,12 @@ int main(int argc, char **argv)
         exit(4);
     }
     shape world_shape;
-    world_shape.h = 35;
-    world_shape.w = 35;
+    world_shape.h = 50;
+    world_shape.w = 50;
     game_world = new grid(world_shape);
 
-    game_world->addNode(node(0,node::node_types::Goal,0),point(35/2,0));
-    game_world->addNode(node(1,node::node_types::Goal,1),point(35/2,34));
+    game_world->addNode(node(0,node::node_types::Goal,0),point(35/2,5));
+    game_world->addNode(node(1,node::node_types::Goal,1),point(35/2,45));
 
     users = std::vector<user>();
     TeamBoundingBoxes = std::vector<shape>(team_count);
@@ -112,12 +112,11 @@ int main(int argc, char **argv)
             auto sock=SDLNet_TCP_Accept(server);
             if(sock)
             {
-                char *userName = NULL;
-                if(getMsg(sock,&userName))
+                if(getMsg(sock,&message))
                 {
                     //Connect the new user
                     user newUser;
-                    newUser.name = std::string(userName);
+                    newUser.name = std::string(message);
                     newUser.mySocket = sock;
                     newUser.changes = std::vector<node_pos>();
                     newUser.isDone = false;
@@ -152,7 +151,8 @@ int main(int argc, char **argv)
                     {
                         //If this user left the game.
                         if(users[i].isDone==true)
-                            users_working--;
+                             users_working--;
+                        SDLNet_TCP_Close(users[i].mySocket);
                         users.erase(users.begin() + i);
                     }
                     else if(strcmp(message,"space")==0)
@@ -167,6 +167,8 @@ int main(int argc, char **argv)
                     }
                 }
             }
+            else
+                i++;
 
         }
         for(int i = 0; i < users.size(); i++)
@@ -388,4 +390,3 @@ SDLNet_SocketSet create_sock()
     return(set);
 }
 #endif
-*/
