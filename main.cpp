@@ -3,10 +3,7 @@
 #define CLIENT
 #include "tcputil.h"
 #include <cmath>
-#include <sstream>
-#include <fstream>
-#include <string>
-#include <cstring>
+
 #include "progressbar.h"
 using namespace std;
 grid game_world;
@@ -29,20 +26,12 @@ bool fortressBuildPhase = false;
 #define SCREEN_HEIGHT 1024
 #define GRID_W 35
 #define GRID_H 35
-#define node_size 25
+#define node_size 25.0f
 #define MOVE_SPEED 40
 #define block_col_size 10
 #define goal_col_size 2
-
-#include <stdio.h>  /* defines FILENAME_MAX */
-#ifdef WINDOWS
-#include <direct.h>
-#define GetCurrentDir _getcwd
-#else
-#include <unistd.h>
-#define GetCurrentDir getcwd
-#endif
-
+//Scales blocks for smaller windows if applicable
+float scale;
 SDL_Palette block_col;
 struct node_pos
 {
@@ -83,7 +72,7 @@ int main(int argc, char *argv[])
     remaining_blocks.myShape.p.x=10;
 
     screen_timer.myShape.p.x = 50;
-    screen_timer.setRadius(40);
+    screen_timer.setRadius(20);
     screen_timer.startClock(30);
     if (TTF_Init() == -1)
     {
@@ -108,16 +97,17 @@ int main(int argc, char *argv[])
     file_dir_stream << cCurrentPath << "/Settings.txt";
     std::ifstream fin(file_dir_stream.str().c_str());
 
-    std::string Name, IP, Port;
+    std::string Name, IP, Port, BlockScale;
     if(fin.is_open()){
         //Insert any other parameters that should be loaded here
         fin >> Name;
         fin >> IP;
         fin >> Port;
-
+        fin >> BlockScale;
         file_dir_stream.flush();
         fin.close();
     }
+    scale = (float)atoi(BlockScale.c_str())/ 512.0f;
     remaining_blocks.myFont = Sans;
     if (Sans == nullptr){
         std::cout << TTF_GetError() << std::endl;
@@ -202,7 +192,7 @@ void draw()
         SDL_GetWindowSize(gWindow,&w,&h);
 
         screen_timer.myShape.p.y = h - 50;
-       if(screen_timer.done()) //If the timer says we're done, go to the next iteration
+        if(screen_timer.done()) //If the timer says we're done, go to the next iteration
             putMsg(sock,"space");
 
         if(numready==-1)
@@ -253,6 +243,19 @@ void draw()
                     if(remaining_blocks.active_ammo_index == remaining_blocks.ammos.size())
                         remaining_blocks.active_ammo_index = 0;
                     break;
+                //Camera zoom in and zoom out functions
+                case SDLK_RALT:
+                    scale -= .1;
+                    camera.x -= camera.x * .1 * sin(45 * PI / 180);
+                    camera.y -= camera.y * .1 * cos(45 * PI / 180);
+                    break;
+                case SDLK_RCTRL:
+                    scale += .1;
+                    camera.x += camera.x * .1 * sin(45 * PI / 180);
+                    camera.y += camera.y * .1 * cos(45 * PI / 180);
+                    break;
+
+                 //Undo
                 case SDLK_BACKSPACE:
                     if(!screen_timer.done()){
                         if(changes.size()!=0){
@@ -270,14 +273,14 @@ void draw()
                             x = e.button.x; y = e.button.y;
                             x -= camera.x; y -= camera.y;
                             //Are we within the playing field?
-                            if((x > 0)&&(x < (game_world.getGridShape().w + 1) * node_size))
-                                if((y > 0)&&(y < (game_world.getGridShape().h + 1) * node_size))
+                            if((x > 0)&&(x < (game_world.getGridShape().w + 1) * node_size * scale))
+                                if((y > 0)&&(y < (game_world.getGridShape().h + 1) * node_size * scale))
                                 {
 
                                     float x1, y1;
                                     x1 = y1 = 0.0f;
-                                    x1 = (float)x / (float)(node_size+ 1);
-                                    y1 = (float)y / (float)(node_size+ 1);
+                                    x1 = (float)x / (float)(node_size * scale+ 1);
+                                    y1 = (float)y / (float)(node_size * scale+ 1);
                                     x1 = (int)x1;
                                     y1 = (int)y1;
 
@@ -286,30 +289,51 @@ void draw()
 
                                     //Check to see if we're within our fortress
                                     if(((x1 > FortShape.p.x -FortShape.w)&&(y1 > FortShape.p.y - FortShape.h)) && ((x1 < FortShape.p.x + FortShape.w)&&(y1 < FortShape.p.y + FortShape.h)))
-                                        if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Empty){
+                                        //Is the block we're currently placing on empty?
+                                        if(game_world.getNode(game_world.convertPointToLinear(final_point)).type == node::node_types::Empty)
+                                            if(remaining_blocks.active_ammo_index == 0)
+                                            {
 #ifdef CLIENT
-                                            stringstream stream;
-                                            stream << "ADD " << x1 << " " << y1 << " " << remaining_blocks.ammos[remaining_blocks.active_ammo_index].type;
-                                            putMsg(sock,(char*)stream.str().c_str());
+                                                stringstream stream;
+                                                stream << "ADD " << x1 << " " << y1 << " " << remaining_blocks.ammos[remaining_blocks.active_ammo_index].type;
+                                                putMsg(sock,(char*)stream.str().c_str());
 #endif
-                                            newchange.n = node(0,remaining_blocks.ammos[remaining_blocks.active_ammo_index].type,0);
-                                            newchange.p = final_point;
-                                            changes.push_back(newchange);
-                                            remaining_blocks.ammos[remaining_blocks.active_ammo_index].count--;
-                                        }
+                                                newchange.n = node(0,remaining_blocks.ammos[remaining_blocks.active_ammo_index].type,0);
+                                                newchange.p = final_point;
+                                                changes.push_back(newchange);
+                                                remaining_blocks.ammos[remaining_blocks.active_ammo_index].count--;
+                                            }
+                                            else
+                                            {
+                                                //If we're not currently using the default block, then we need to make sure that we're within the upper building limit
+                                                float dist = sqrt(pow(x1 - FortShape.p.x,2) + pow(y1 - FortShape.p.y,2));
+                                                //We're within bounds, so let the user build
+                                                if(dist < (game_world.getGridShape().h + game_world.getGridShape().w)  / 4)
+                                                {
+#ifdef CLIENT
+                                                    stringstream stream;
+                                                    stream << "ADD " << x1 << " " << y1 << " " << remaining_blocks.ammos[remaining_blocks.active_ammo_index].type;
+                                                    putMsg(sock,(char*)stream.str().c_str());
+#endif
+                                                    newchange.n = node(0,remaining_blocks.ammos[remaining_blocks.active_ammo_index].type,0);
+                                                    newchange.p = final_point;
+                                                    changes.push_back(newchange);
+                                                    remaining_blocks.ammos[remaining_blocks.active_ammo_index].count--;
+                                                }
+                                            }
                                 }
                         }
                         else if(e.button.button == SDL_BUTTON_RIGHT){
                             x = e.button.x; y = e.button.y;
                             x -= camera.x; y -= camera.y;
 
-                            if((x > 0)&&(x < (game_world.getGridShape().w + 1) * node_size))
-                                if((y > 0)&&(y < (game_world.getGridShape().h + 1) * node_size))
+                            if((x > 0)&&(x < (game_world.getGridShape().w + 1) * node_size * scale))
+                                if((y > 0)&&(y < (game_world.getGridShape().h + 1) * node_size * scale))
                                 {
                                     float x1, y1;
                                     x1 = y1 = 0.0f;
-                                    x1 = (float)x / (float)(node_size+ 1);
-                                    y1 = (float)y / (float)(node_size+ 1);
+                                    x1 = (float)x / (float)(node_size * scale+ 1);
+                                    y1 = (float)y / (float)(node_size * scale+ 1);
                                     x1 = (int)x1;
                                     y1 = (int)y1;
 
@@ -331,7 +355,7 @@ void draw()
                                         }
                                 }
                         }
-                   }
+                    }
                 }
                 break;
             case SDL_KEYDOWN:
@@ -360,13 +384,13 @@ void draw()
             auto cur_node = game_world.getNode(i);
             point node_point = game_world.convertLinearToPoint(i);
             auto t= node_point;
-            node_point.x *= node_size;
-            node_point.y *= node_size;
+            node_point.x *= node_size * scale;
+            node_point.y *= node_size * scale;
             //Leave a small gap between the blocks
             node_point.x += camera.x + t.x;
             node_point.y += camera.y + t.y;
 
-            SDL_Rect node_rect = { node_point.x, node_point.y, node_size, node_size };
+            SDL_Rect node_rect = { node_point.x, node_point.y, node_size * scale, node_size * scale };
             switch(cur_node.type)
             {
             case(node::node_types::Block):
@@ -380,7 +404,7 @@ void draw()
                 SDL_RenderFillRect( gRenderer, &node_rect );
                 break;
             case(node::node_types::Goal):
-                filledCircleRGBA(gRenderer,node_point.x + (node_size / 2), node_point.y + (node_size / 2),node_size / 2,51,204,0,255);
+                filledCircleRGBA(gRenderer,node_point.x + (node_size * scale / 2), node_point.y + (node_size * scale / 2),node_size * scale / 2,51,204,0,255);
                 break;
             }
         }
@@ -389,12 +413,12 @@ void draw()
             auto cur_node = team_changes.at(i);
             point node_point = cur_node.p;
             auto t= node_point;
-            node_point.x *= node_size;
-            node_point.y *= node_size;
+            node_point.x *= node_size * scale;
+            node_point.y *= node_size * scale;
             //Leave a small gap between the blocks
             node_point.x += camera.x + t.x;
             node_point.y += camera.y + t.y;
-            SDL_Rect node_rect = { node_point.x, node_point.y, node_size, node_size };
+            SDL_Rect node_rect = { node_point.x, node_point.y, node_size * scale, node_size * scale };
             //Render these in different colors so you can differentiate between teams
             switch(cur_node.n.type)
             {
@@ -420,12 +444,12 @@ void draw()
             auto cur_node = changes.at(i);
             point node_point = cur_node.p;
             auto t= node_point;
-            node_point.x *= node_size;
-            node_point.y *= node_size;
+            node_point.x *= node_size * scale;
+            node_point.y *= node_size * scale;
             //Leave a small gap between the blocks
             node_point.x += camera.x + t.x;
             node_point.y += camera.y + t.y;
-            SDL_Rect node_rect = { node_point.x, node_point.y, node_size, node_size };
+            SDL_Rect node_rect = { node_point.x, node_point.y, node_size * scale, node_size * scale };
             switch(cur_node.n.type)
             {
             case(node::node_types::Block):
@@ -458,7 +482,7 @@ void draw()
         Message_rect.w = text_w; // controls the width of the rect
         Message_rect.h = text_h; // controls the height of the rect
 
-        SDL_RenderCopy(gRenderer, Message, NULL, &Message_rect); //you put the renderer's name first, the Message, the crop size(you can ignore this if you don't want to dabble with cropping), and the rect which is the size and coordinate of your texture
+        SDL_RenderCopy(gRenderer, Message, NULL, &Message_rect);
         SDL_DestroyTexture(Message);
         SDL_FreeSurface(surfaceMessage);
 
@@ -470,8 +494,15 @@ void draw()
         auto fortwidth = FortShape.w;
         auto fortheight = FortShape.h;
 
-        SDL_Rect fortrect = SDL_Rect{(FortShape.p.x + 1 - fortwidth) * (node_size + 1) +camera.x,(FortShape.p.y - fortheight)* (node_size + 1) + camera.y, 2.0f * ((float)fortwidth - 0.5f) * (node_size + 1),2 * fortheight * (node_size + 1)};
+        SDL_Rect fortrect = SDL_Rect{(FortShape.p.x + 1 - fortwidth) * (node_size * scale + 1) +camera.x,(FortShape.p.y - fortheight)* (node_size * scale + 1) + camera.y, 2.0f * ((float)fortwidth - 0.5f) * (node_size * scale + 1),2 * fortheight * (node_size * scale + 1)};
         SDL_RenderDrawRect(gRenderer, &fortrect);
+
+
+        SDL_Rect mainrect = SDL_Rect{camera.x,
+                camera.y,
+                game_world.getGridShape().w * (node_size * scale + 1),
+                game_world.getGridShape().h * (node_size * scale + 1)};
+        SDL_RenderDrawRect(gRenderer, &mainrect);
 
         //Update screen
         SDL_RenderPresent( gRenderer );

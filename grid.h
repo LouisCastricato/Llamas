@@ -2,11 +2,24 @@
 #define GRID_H_
 #define SPRITE_SIZE_MULT 1.0f
 #include "SDL2/SDL.h"
-
+#define PI 3.14159265
 #include <SDL2/SDL_ttf.h>
 #include <vector>
 #include <algorithm>
 #define team_count 2
+
+#include <stdio.h>  /* defines FILENAME_MAX */
+#ifdef WINDOWS
+#include <direct.h>
+#define GetCurrentDir _getcwd
+#else
+#include <unistd.h>
+#define GetCurrentDir getcwd
+#endif
+#include <sstream>
+#include <fstream>
+#include <string>
+#include <cstring>
 struct node
 {
     node(int col = 0, int t = 0, int o = 0)

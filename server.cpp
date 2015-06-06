@@ -1,4 +1,4 @@
-
+/*
 #ifndef CLIENT
 #include "grid.cpp"
 #include "tcputil.h"
@@ -41,6 +41,8 @@ int main(int argc, char **argv)
     index_per_team = std::vector<int>(team_count);
     char *message = NULL;
     Uint16 port;
+    //Load the server settings
+
 
     //initialize SDL
     if(SDL_Init(0)==-1)
@@ -84,12 +86,12 @@ int main(int argc, char **argv)
         exit(4);
     }
     shape world_shape;
-    world_shape.h = 75;
-    world_shape.w = 75;
+    world_shape.h = 250;
+    world_shape.w = 250;
     game_world = new grid(world_shape);
 
-    game_world->addNode(node(0,node::node_types::Goal,0),point(35,10));
-    game_world->addNode(node(1,node::node_types::Goal,1),point(35,65));
+    game_world->addNode(node(0,node::node_types::Goal,0),point(world_shape.w / 2,                10));
+    game_world->addNode(node(1,node::node_types::Goal,1),point(world_shape.w / 2,world_shape.h - 10));
 
     users = std::vector<user>();
     TeamBoundingBoxes = std::vector<shape>(team_count);
@@ -157,7 +159,7 @@ int main(int argc, char **argv)
                     {
                         //If this user left the game.
                         if(users[i].isDone==true)
-                             users_working--;
+                            users_working--;
                         SDLNet_TCP_Close(users[i].mySocket);
                         users.erase(users.begin() + i);
                     }
@@ -211,7 +213,6 @@ int main(int argc, char **argv)
         if((users_working <=0) &&(users.size() != 0))
         {
             //If no one has changed anything don't update
-           // bool doNotUpdate = true;
             //Push pending changes. Done in reverse so that earlier uses have priority
             for(int i =  users.size() - 1; i >= 0; i--)
             {
@@ -222,30 +223,27 @@ int main(int argc, char **argv)
                 {
                     //Add the node to the world
                     game_world->addNode(users[i].changes[j].n,users[i].changes[j].p);
-                    //doNotUpdate = false;
                 }
                 users[i].changes.clear();
             }
-           // if(!doNotUpdate){
-                turnChanges.clear();
-                for(int i = 0; i < team_count; i++)
+            turnChanges.clear();
+            for(int i = 0; i < team_count; i++)
+            {
+                TeamBoundingBoxes[i] = computeBoundingBox(i);
+            }
+            //Do a new update
+            game_world->updateItt();
+            for(int i = 0; i < team_count; i++)
+            {
+                auto world = pushGameWorld_Team(i);
+                //Send the data to the clients
+                for(int j = 0; j < users.size(); j++)
                 {
-                    TeamBoundingBoxes[i] = computeBoundingBox(i);
-                }
-                //Do a new update
-                game_world->updateItt();
-                for(int i = 0; i < team_count; i++)
-                {
-                    auto world = pushGameWorld_Team(i);
-                    //Send the data to the clients
-                    for(int j = 0; j < users.size(); j++)
-                    {
-                        if(users[j].team == i){
-                            putMsg(users[j].mySocket,(char*)world.c_str());
-                            users[j].isDone = false;
-                        }
+                    if(users[j].team == i){
+                        putMsg(users[j].mySocket,(char*)world.c_str());
+                        users[j].isDone = false;
                     }
-                //}
+                }
             }
         }
 
@@ -316,10 +314,10 @@ shape computeBoundingBox(int team)
     int goal_pos = 0;
     point goalpt;
     //The minimum and maximum points of our bounding box
-    int mindist, maxdist;
-    mindist= maxdist= 0;
-    point min,max;
-    min.x = max.x = min.y= max.y = 0;
+    int maxdist;
+    maxdist= 0;
+    point max;
+    max.x = max.y = 0;
     //Do a first pass to find the center of the team
     for(int i = 0; i < game_world->getGridSize(); i++)
     {
@@ -338,12 +336,8 @@ shape computeBoundingBox(int team)
             if(game_world->getNode(i).owner == team){
                 point this_point = game_world->convertLinearToPoint(i);
                 //Find the manhatten distance
-                int dist = this_point.x -goalpt.x+ this_point.y - goalpt.y;
-                if(dist < mindist){
-                    min = this_point;
-                    mindist = dist;
-                }
-                else if(dist > maxdist){
+                float dist = sqrt(pow(this_point.x -goalpt.x,2)+ pow(this_point.y - goalpt.y,2));
+                if(dist > maxdist){
                     max = this_point;
                     maxdist = dist;
                 }
@@ -353,8 +347,9 @@ shape computeBoundingBox(int team)
 
     shape to_return;
     to_return.p = goalpt;
-    to_return.w = (max.x - min.x)/2 + 3;
-    to_return.h = (max.y - min.y)/2 + 3;
+
+    to_return.w = maxdist * cos(45 * PI / 180) + 3;
+    to_return.h = maxdist * sin(45 * PI / 180) + 3;
     return to_return;
 }
 
@@ -400,3 +395,4 @@ SDLNet_SocketSet create_sock()
     return(set);
 }
 #endif
+*/
