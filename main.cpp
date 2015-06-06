@@ -202,8 +202,8 @@ void draw()
         SDL_GetWindowSize(gWindow,&w,&h);
 
         screen_timer.myShape.p.y = h - 50;
-        if(screen_timer.done()) //If the timer says we're done, go to the next iteration
-            putMsg(sock,"space");
+       // if(screen_timer.done()) //If the timer says we're done, go to the next iteration
+          //  putMsg(sock,"space");
 
         if(numready==-1)
         {
@@ -254,18 +254,18 @@ void draw()
                         remaining_blocks.active_ammo_index = 0;
                     break;
                 case SDLK_BACKSPACE:
-                    if(!screen_timer.done()){
+                   // if(!screen_timer.done()){
                         if(changes.size()!=0){
 #ifdef CLIENT
                             putMsg(sock,"bckspace");
 #endif
                             changes.erase(changes.begin()+ changes.size() - 1); remaining_blocks.ammos[remaining_blocks.active_ammo_index].count++;}
-                    }
+                   // }
                     break;
                 }
                 break;
             case SDL_MOUSEBUTTONDOWN:if(remaining_blocks.ammos[remaining_blocks.active_ammo_index].count > 0){
-                    if(!screen_timer.done()){
+                   // if(!screen_timer.done()){
                         if(e.button.button == SDL_BUTTON_LEFT){
                             x = e.button.x; y = e.button.y;
                             x -= camera.x; y -= camera.y;
@@ -331,7 +331,7 @@ void draw()
                                         }
                                 }
                         }
-                    }
+                   // }
                 }
                 break;
             case SDL_KEYDOWN:
